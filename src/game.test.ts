@@ -137,10 +137,11 @@ describe.each([
   })
 
   it('no locked block floats on an empty board', () => {
+    const board = make()
     for (const kind of KINDS)
       for (let k = -5; k <= 5; k++)
         for (let rot = 0; rot < 4; rot++) {
-          const g = new Game(make())
+          const g = new Game(board)
           g.piece = { ...g.piece!, kind }
           for (let r = 0; r < rot; r++) g.rotate()
           for (let i = 0; i < Math.abs(k); i++) g.move(k < 0 ? 'left' : 'right')
