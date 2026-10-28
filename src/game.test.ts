@@ -21,6 +21,20 @@ describe('boards', () => {
     }
   })
 
+  it('the well has 20 bands of about 10 cells, each one edge-connected row', () => {
+    for (let seed = 1; seed <= 50; seed++) {
+      const { cells } = townscaperWell(seed)
+      expect(linesConnected(cells)).toBe(true)
+      const sizes = new Map<number, number>()
+      for (const c of cells) sizes.set(c.line, (sizes.get(c.line) ?? 0) + 1)
+      expect([...sizes.keys()].sort((a, b) => a - b)).toEqual([...Array(20).keys()])
+      for (const n of sizes.values()) {
+        expect(n).toBeGreaterThanOrEqual(7)
+        expect(n).toBeLessThanOrEqual(14)
+      }
+    }
+  })
+
   it('every disc ring is one edge-connected piece', () => {
     for (let seed = 1; seed <= 50; seed++) expect(linesConnected(townscaperDisc(seed).cells)).toBe(true)
   })

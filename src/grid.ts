@@ -92,7 +92,7 @@ export function squareBoard(cols = 10, rows = 20): Board {
 const ek = (a: number, b: number) => (a < b ? `${a}_${b}` : `${b}_${a}`)
 
 // Townscaper-style mesh: tri lattice -> random tri-pair merge -> split all to quads -> relax.
-function townscaperMesh(seed: number, cols: number, rows: number, keep: (x: number, y: number) => boolean, straightWalls = false) {
+function townscaperMesh(seed: number, cols: number, rows: number, keep: (x: number, y: number) => boolean) {
   const rand = rng(seed)
   const h = Math.sqrt(3) / 2
   const V: Vec[] = []
@@ -140,7 +140,14 @@ function townscaperMesh(seed: number, cols: number, rows: number, keep: (x: numb
     polys.push([A[ka], A[(ka + 1) % 3], tris[b].find((x) => x !== u && x !== v)!, A[(ka + 2) % 3]])
   }
   tris.forEach((t, i) => used.has(i) || polys.push(t))
+  return quadify(V, polys).cells
+}
 
+/**
+ * Splits every polygon into quads (one per corner, meeting at the centroid), then relaxes
+ * with the boundary pinned. corner[i] is the polygon vertex that cell i was cut around.
+ */
+function quadify(V: Vec[], polys: number[][]) {
   const mids = new Map<string, number>()
   const M = (a: number, b: number) => {
     const k = ek(a, b)
@@ -151,12 +158,18 @@ function townscaperMesh(seed: number, cols: number, rows: number, keep: (x: numb
     return mids.get(k)!
   }
   const quads: number[][] = []
-  for (const p of polys) {
+  const corner: number[] = []
+  const parent: number[] = []
+  polys.forEach((p, pi) => {
     const n = p.length
     const c = V.length
     V.push(centroid(p.map((v) => V[v])))
-    for (let i = 0; i < n; i++) quads.push([p[i], M(p[i], p[(i + 1) % n]), c, M(p[(i - 1 + n) % n], p[i])])
-  }
+    for (let i = 0; i < n; i++) {
+      quads.push([p[i], M(p[i], p[(i + 1) % n]), c, M(p[(i - 1 + n) % n], p[i])])
+      corner.push(p[i])
+      parent.push(pi)
+    }
+  })
   // Same winding everywhere, so frame transport never mirrors a piece.
   for (const q of quads) if (area(q.map((v) => V[v])) < 0) q.reverse()
 
@@ -167,14 +180,11 @@ function townscaperMesh(seed: number, cols: number, rows: number, keep: (x: numb
   }))
   const pinned = new Set<number>()
   for (const [e, l] of quadEdges) if (l.length === 1) e.split('_').forEach((v) => pinned.add(+v))
-  // The lattice's side walls zigzag by half a cell; flatten them to x = 0.25 and x = cols + 0.25.
-  if (straightWalls)
-    for (const v of pinned) {
-      if (V[v].x <= 0.5) V[v].x = 0.25
-      if (V[v].x >= cols) V[v].x = cols + 0.25
-    }
 
-  // Stålberg squaring: pull each quad toward the best-fit square, boundary pinned.
+  // Stålberg squaring: pull each quad toward its best-fit square, scaled to the mean
+  // cell size so cells even out in size as well as shape. Boundary stays pinned.
+  const meanArea = quads.reduce((s, q) => s + area(q.map((v) => V[v])), 0) / 2 / quads.length
+  const radius = Math.sqrt(meanArea / 2) // centre-to-corner distance of a square of that area
   for (let it = 0; it < 40; it++) {
     const F = V.map(() => ({ x: 0, y: 0 }))
     for (const q of quads) {
@@ -187,6 +197,8 @@ function townscaperMesh(seed: number, cols: number, rows: number, keep: (x: numb
         vx += dx / 4
         vy += dy / 4
       })
+      const len = Math.hypot(vx, vy) || 1
+      ;[vx, vy] = [(vx / len) * radius, (vy / len) * radius]
       q.forEach((v, k) => {
         let [tx, ty] = [vx, vy]
         for (let r = 0; r < k; r++) [tx, ty] = [-ty, tx]
@@ -201,7 +213,7 @@ function townscaperMesh(seed: number, cols: number, rows: number, keep: (x: numb
     })
   }
 
-  return quads.map((q, qi) => {
+  const cells = quads.map((q, qi) => {
     const poly = q.map((v) => ({ ...V[v] }))
     const c = centroid(poly)
     const nb = q.map((v, k) => {
@@ -210,6 +222,7 @@ function townscaperMesh(seed: number, cols: number, rows: number, keep: (x: numb
     })
     return { poly, cx: c.x, cy: c.y, nb, line: 0, down: -1, downs: [], left: [], right: [] } as Cell
   })
+  return { cells, corner, parent }
 }
 
 function area(p: Vec[]) {
@@ -234,27 +247,78 @@ function crop(cells: Cell[], keep: (i: number) => boolean) {
   return out
 }
 
-/** Rectangular well, gravity down the screen, lines are horizontal bands. */
-export function townscaperWell(seed: number, cols = 5, rows = 10): Board {
-  const cells = townscaperMesh(seed, cols, rows, () => true, true)
-  const bottom = Math.max(...cells.flatMap((c) => c.poly.map((p) => p.y)))
-  const top = Math.min(...cells.flatMap((c) => c.poly.map((p) => p.y)))
-  const bandH = (bottom - top) / Math.round((bottom - top) / 0.4)
+/**
+ * Rectangular well built upwards from a flat floor, one triangle-lattice row at a time.
+ * Walls cut the lattice at x = 0 and x = cols, so edge cells keep their natural shape.
+ * Triangles merge into quads only along their row; after the quad split, each lattice
+ * row divides into a lower and an upper strip of cells. Each strip is one clean band
+ * running wall to wall, so the well has 2 * rows bands of about 10 cells each.
+ */
+const MERGE = 0.6
+
+export function townscaperWell(seed: number, cols = 4, rows = 10): Board {
+  const rand = rng(seed)
+  const h = Math.sqrt(3) / 2
+  const V: Vec[] = []
+  const vLine: number[] = [] // lattice line of each lattice vertex
+  const vid = new Map<string, number>()
+  // Lattice line L sits at y = (rows - L) * h, so line 0 is the floor. Its points are
+  // offset by half a unit on odd lines, plus the two wall points.
+  const line = (L: number) => {
+    const xs = new Set([0, cols])
+    for (let x = (L % 2) / 2; x < cols; x++) if (x > 0) xs.add(x)
+    return [...xs].sort((a, b) => a - b).map((x) => {
+      const k = `${L},${x}`
+      if (!vid.has(k)) {
+        vid.set(k, V.length)
+        vLine.push(L)
+        V.push({ x, y: (rows - L) * h })
+      }
+      return vid.get(k)!
+    })
+  }
+
+  const polys: number[][] = []
+  const polyRow: number[] = []
+  for (let r = 0; r < rows; r++) {
+    const [bot, top] = [line(r), line(r + 1)]
+    // Zip the two lines into triangles; each is a [bottom range, top range] of indices.
+    const tris: [number, number, number, number][] = []
+    for (let b = 0, t = 0; b < bot.length - 1 || t < top.length - 1; ) {
+      const stepBottom = t === top.length - 1 || (b < bot.length - 1 && V[bot[b + 1]].x < V[top[t + 1]].x)
+      tris.push(stepBottom ? [b, b + 1, t, t] : [b, b, t, t + 1])
+      stepBottom ? b++ : t++
+    }
+    // Half-width triangles at the walls always merge, so wall cells are not tiny.
+    const half = (i: number) => i === 0 || i === tris.length - 1
+    for (let i = 0; i < tris.length; i++) {
+      let [b0, b1, t0, t1] = tris[i]
+      const isHalf = half(i) && Math.abs(V[bot[b1]].x - V[bot[b0]].x + V[top[t1]].x - V[top[t0]].x) < 0.75
+      if (i + 1 < tris.length && (isHalf || half(i + 1) || rand() < MERGE)) [, b1, , t1] = tris[++i]
+      const poly = [...bot.slice(b0, b1 + 1), ...top.slice(t0, t1 + 1).reverse()]
+      polys.push(poly)
+      polyRow.push(r)
+    }
+  }
+  const { cells, corner, parent } = quadify(V, polys)
+  cells.forEach((c, i) => {
+    const r = polyRow[parent[i]]
+    c.line = 2 * r + (vLine[corner[i]] === r ? 0 : 1)
+  })
   for (const c of cells) {
-    c.line = Math.min(Math.floor((bottom - c.cy) / bandH), Math.round((bottom - top) / bandH) - 1)
-    c.downs = ranked(c, cells, (n) => n.cy - c.cy)
+    // Fall to a lower band first; within a band only slide downhill.
+    c.downs = ranked(c, cells, (n) => (n.line < c.line ? 100 : n.line === c.line ? 0 : -100) + n.cy - c.cy)
     c.down = c.downs[0] ?? -1
-    // Sideways: any neighbour on that side, the ones that do not climb first.
-    // ponytail: zigzag steering can still stall a piece briefly; add lock delay limits if it matters.
+    // Steer along the band first, then to any neighbour on that side.
     const side = (sign: number) =>
       ranked(c, cells, (n) => sign * (n.cx - c.cx)).sort(
-        (a, b) => Math.min(0, cells[b].cy - c.cy) - Math.min(0, cells[a].cy - c.cy),
+        (a, b) => Number(cells[a].line !== c.line) - Number(cells[b].line !== c.line),
       )
     c.left = side(-1)
     c.right = side(1)
   }
-  const midX = cells.reduce((s, c) => s + c.cx, 0) / cells.length
-  return spawnAt(cells, midX, top + 0.6, () => [0, 1])
+  const top = Math.min(...cells.map((c) => c.cy))
+  return spawnAt(cells, cols / 2, top + 0.6, () => [0, 1])
 }
 
 /** True when every line's cells form one edge-connected group. */
