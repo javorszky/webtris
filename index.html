@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en" class="h-full bg-gray-950">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>webtris</title>
+    <script type="module" src="/src/main.ts"></script>
+  </head>
+  <body class="h-full text-gray-100 antialiased">
+    <main class="flex h-dvh flex-col gap-4 p-4 sm:flex-row sm:p-6">
+      <div id="stage" class="relative min-h-0 min-w-0 flex-1"></div>
+
+      <aside class="flex shrink-0 flex-row flex-wrap gap-4 sm:w-56 sm:flex-col">
+        <div>
+          <p class="text-xs font-medium tracking-wide text-gray-400 uppercase">Mode</p>
+          <p id="mode" class="text-lg font-semibold text-white">—</p>
+        </div>
+        <dl class="grid grid-cols-3 gap-3 sm:grid-cols-1">
+          <div class="rounded-lg bg-white/5 px-4 py-3 ring-1 ring-white/10">
+            <dt class="text-xs text-gray-400">Score</dt>
+            <dd id="score" class="origin-left text-2xl font-semibold tabular-nums text-white">0</dd>
+          </div>
+          <div class="rounded-lg bg-white/5 px-4 py-3 ring-1 ring-white/10">
+            <dt class="text-xs text-gray-400">Level</dt>
+            <dd id="level" class="text-2xl font-semibold tabular-nums text-white">1</dd>
+          </div>
+          <div class="rounded-lg bg-white/5 px-4 py-3 ring-1 ring-white/10">
+            <dt class="text-xs text-gray-400">Lines</dt>
+            <dd id="lines" class="text-2xl font-semibold tabular-nums text-white">0</dd>
+          </div>
+        </dl>
+        <div class="rounded-lg bg-white/5 px-4 py-3 ring-1 ring-white/10">
+          <p class="mb-2 text-xs text-gray-400">Next</p>
+          <div id="next" class="grid w-24 grid-cols-4 gap-0.5"></div>
+        </div>
+        <ul class="hidden space-y-1 text-xs text-gray-400 sm:block">
+          <li><kbd class="font-mono text-gray-200">← →</kbd> steer</li>
+          <li><kbd class="font-mono text-gray-200">↑ / X</kbd> rotate, <kbd class="font-mono text-gray-200">Z</kbd> rotate back</li>
+          <li><kbd class="font-mono text-gray-200">↓</kbd> soft drop, <kbd class="font-mono text-gray-200">Space</kbd> hard drop</li>
+          <li><kbd class="font-mono text-gray-200">P / Esc</kbd> pause</li>
+        </ul>
+        <button id="open-menu" type="button" class="rounded-md bg-white/10 px-3 py-2 text-sm font-semibold text-white ring-1 ring-white/10 hover:bg-white/20 sm:mt-auto">
+          Change mode
+        </button>
+      </aside>
+    </main>
+
+    <el-dialog>
+      <dialog id="menu" aria-labelledby="menu-title" class="fixed inset-0 size-auto max-h-none max-w-none overflow-y-auto bg-transparent backdrop:bg-transparent">
+        <el-dialog-backdrop class="fixed inset-0 bg-gray-950/80 transition-opacity data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in"></el-dialog-backdrop>
+        <div tabindex="0" class="flex min-h-full items-center justify-center p-4 focus:outline-none">
+          <el-dialog-panel class="relative w-full max-w-lg transform overflow-hidden rounded-xl bg-gray-900 p-6 text-left shadow-xl ring-1 ring-white/10 transition-all data-closed:scale-95 data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in">
+            <h2 id="menu-title" class="text-xl font-semibold text-white">webtris</h2>
+            <p class="mt-1 text-sm text-gray-400">Choose a grid.</p>
+            <div class="mt-5 space-y-3">
+              <button type="button" data-mode="classic" class="block w-full rounded-lg bg-white/5 px-4 py-3 text-left ring-1 ring-white/10 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-indigo-500">
+                <span class="block font-semibold text-white">Classic</span>
+                <span class="block text-sm text-gray-400">10 × 20 squares. Clear full rows.</span>
+              </button>
+              <button type="button" data-mode="well" class="block w-full rounded-lg bg-white/5 px-4 py-3 text-left ring-1 ring-white/10 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-indigo-500">
+                <span class="block font-semibold text-white">Townscaper well</span>
+                <span class="block text-sm text-gray-400">Irregular quads, pieces bend. Clear full horizontal bands.</span>
+              </button>
+              <button type="button" data-mode="disc" class="block w-full rounded-lg bg-white/5 px-4 py-3 text-left ring-1 ring-white/10 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-indigo-500">
+                <span class="block font-semibold text-white">Townscaper disc</span>
+                <span class="block text-sm text-gray-400">Pieces fall to the centre. Clear full rings.</span>
+              </button>
+            </div>
+          </el-dialog-panel>
+        </div>
+      </dialog>
+    </el-dialog>
+
+    <el-dialog>
+      <dialog id="pause" aria-labelledby="pause-title" class="fixed inset-0 size-auto max-h-none max-w-none overflow-y-auto bg-transparent backdrop:bg-transparent">
+        <el-dialog-backdrop class="fixed inset-0 bg-gray-950/70 transition-opacity data-closed:opacity-0 data-enter:duration-200 data-leave:duration-150"></el-dialog-backdrop>
+        <div tabindex="0" class="flex min-h-full items-center justify-center p-4 focus:outline-none">
+          <el-dialog-panel class="relative w-full max-w-xs rounded-xl bg-gray-900 p-6 text-center shadow-xl ring-1 ring-white/10 transition-all data-closed:scale-95 data-closed:opacity-0 data-enter:duration-200 data-leave:duration-150">
+            <h2 id="pause-title" class="text-lg font-semibold text-white">Paused</h2>
+            <button type="button" command="close" commandfor="pause" class="mt-4 w-full rounded-md bg-indigo-500 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-400">Resume</button>
+          </el-dialog-panel>
+        </div>
+      </dialog>
+    </el-dialog>
+
+    <el-dialog>
+      <dialog id="over" aria-labelledby="over-title" class="fixed inset-0 size-auto max-h-none max-w-none overflow-y-auto bg-transparent backdrop:bg-transparent">
+        <el-dialog-backdrop class="fixed inset-0 bg-gray-950/70 transition-opacity data-closed:opacity-0 data-enter:duration-300 data-leave:duration-200"></el-dialog-backdrop>
+        <div tabindex="0" class="flex min-h-full items-center justify-center p-4 focus:outline-none">
+          <el-dialog-panel class="relative w-full max-w-xs rounded-xl bg-gray-900 p-6 text-center shadow-xl ring-1 ring-white/10 transition-all data-closed:scale-95 data-closed:opacity-0 data-enter:duration-300 data-leave:duration-200">
+            <h2 id="over-title" class="text-lg font-semibold text-white">Game over</h2>
+            <p class="mt-1 text-sm text-gray-400">Score <span id="final" class="font-semibold text-white tabular-nums">0</span></p>
+            <div class="mt-4 flex gap-2">
+              <button id="to-menu" type="button" class="flex-1 rounded-md bg-white/10 px-3 py-2 text-sm font-semibold text-white ring-1 ring-white/10 hover:bg-white/20">Menu</button>
+              <button id="restart" type="button" class="flex-1 rounded-md bg-indigo-500 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-400">Play again</button>
+            </div>
+          </el-dialog-panel>
+        </div>
+      </dialog>
+    </el-dialog>
+  </body>
+</html>
