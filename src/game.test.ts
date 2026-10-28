@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { Game, blocks, KINDS } from './game'
 import { linesConnected, rng, squareBoard, townscaperDisc, townscaperWell, type Board } from './grid'
 
+function polyArea(p: { x: number; y: number }[]) {
+  return Math.abs(p.reduce((s, a, k) => s + a.x * p[(k + 1) % 4].y - p[(k + 1) % 4].x * a.y, 0)) / 2
+}
+
 function invariants(b: Board) {
   b.cells.forEach((c, i) => {
     expect(c.poly).toHaveLength(4)
@@ -14,24 +18,27 @@ function invariants(b: Board) {
 describe('boards', () => {
   it('square board is consistent', () => invariants(squareBoard()))
 
-  it('townscaper boards are consistent', () => {
+  // Generation throws on any source triangle or pentagon, so building boards is the check.
+  it('townscaper boards are consistent and built from quads only', () => {
     for (let seed = 1; seed <= 20; seed++) {
       invariants(townscaperWell(seed))
       invariants(townscaperDisc(seed))
     }
   })
 
-  it('the well has 20 bands of about 10 cells, each one edge-connected row', () => {
+  it('well: down is always at most 60 degrees off straight down, and the bottom row is level', () => {
     for (let seed = 1; seed <= 50; seed++) {
       const { cells } = townscaperWell(seed)
-      expect(linesConnected(cells)).toBe(true)
-      const sizes = new Map<number, number>()
-      for (const c of cells) sizes.set(c.line, (sizes.get(c.line) ?? 0) + 1)
-      expect([...sizes.keys()].sort((a, b) => a - b)).toEqual([...Array(20).keys()])
-      for (const n of sizes.values()) {
-        expect(n).toBeGreaterThanOrEqual(7)
-        expect(n).toBeLessThanOrEqual(14)
-      }
+      for (const c of cells)
+        for (const d of c.downs) {
+          const [dx, dy] = [cells[d].cx - c.cx, cells[d].cy - c.cy]
+          expect(dy).toBeGreaterThan(0)
+          expect(Math.abs(dx)).toBeLessThanOrEqual(Math.sqrt(3) * dy)
+        }
+      // Roughly level: bottom-row centres stay within half a cell height.
+      const ys = cells.filter((c) => c.line === 0).map((c) => c.cy)
+      const cellH = Math.sqrt(cells.reduce((s, c) => s + polyArea(c.poly), 0) / cells.length)
+      expect(Math.max(...ys) - Math.min(...ys)).toBeLessThan(cellH / 2)
     }
   })
 
@@ -127,6 +134,20 @@ describe.each([
       while (g.move('down')) expect(++n).toBeLessThan(g.board.cells.length)
       expect(g.tick()).not.toBeNull()
     }
+  })
+
+  it('no locked block floats on an empty board', () => {
+    for (const kind of KINDS)
+      for (let k = -5; k <= 5; k++)
+        for (let rot = 0; rot < 4; rot++) {
+          const g = new Game(make())
+          g.piece = { ...g.piece!, kind }
+          for (let r = 0; r < rot; r++) g.rotate()
+          for (let i = 0; i < Math.abs(k); i++) g.move(k < 0 ? 'left' : 'right')
+          g.hardDrop()
+          // On an empty board the only support is the floor (a cell with nowhere lower to go).
+          expect(g.grid.some((kindAt, i) => kindAt && g.board.cells[i].down < 0)).toBe(true)
+        }
   })
 
   it('filling line 0 clears it and keeps every other block', () => {

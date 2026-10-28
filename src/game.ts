@@ -26,6 +26,18 @@ export function step(board: Board, cell: number, frame: number, edge: number): [
   return [n, mod4(back - d - 2)]
 }
 
+/** Frame in `to` whose edge 0 faces the same way as edge `frame` of `from` (for moves across a corner). */
+export function align(board: Board, from: number, frame: number, to: number) {
+  const facing = (c: number, k: number) => {
+    const { poly, cx, cy } = board.cells[c]
+    const [a, b] = [poly[k], poly[(k + 1) % 4]]
+    return Math.atan2((a.y + b.y) / 2 - cy, (a.x + b.x) / 2 - cx)
+  }
+  const want = facing(from, frame)
+  const off = (k: number) => Math.abs(Math.atan2(Math.sin(facing(to, k) - want), Math.cos(facing(to, k) - want)))
+  return [0, 1, 2, 3].reduce((best, k) => (off(k) < off(best) ? k : best))
+}
+
 /** Cells a piece covers, or null if a walk leaves the board or two blocks land on one cell. */
 export function blocks(board: Board, p: Piece): number[] | null {
   const out: number[] = []
@@ -98,7 +110,8 @@ export class Game {
     if (!p || this.over) return false
     const cell = this.board.cells[p.root]
     for (const to of dir === 'down' ? cell.downs : cell[dir]) {
-      const [root, frame] = step(this.board, p.root, p.frame, cell.nb.indexOf(to))
+      const edge = cell.nb.indexOf(to)
+      const [root, frame] = edge >= 0 ? step(this.board, p.root, p.frame, edge) : [to, align(this.board, p.root, p.frame, to)]
       const moved = { ...p, root, frame }
       if (!this.fits(moved)) continue
       this.piece = moved
@@ -144,6 +157,21 @@ export class Game {
     for (const i of locked) this.grid[i] = this.piece.kind
     const { cells } = this.board
 
+    // Nothing floats: a piece that cannot move down but rests on nothing (the grid's shape
+    // blocked it, not a block or the floor) drops block by block, lowest first.
+    const falls: [number, number][] = []
+    const rests = (i: number) => cells[i].down < 0 || (this.grid[cells[i].down] !== null && !locked.includes(cells[i].down))
+    if (!locked.some(rests))
+      for (const from of [...locked].sort((a, b) => cells[b].cy - cells[a].cy)) {
+        let at = from
+        while (cells[at].down >= 0 && this.grid[cells[at].down] === null) {
+          this.grid[cells[at].down] = this.grid[at]
+          this.grid[at] = null
+          at = cells[at].down
+        }
+        if (at !== from) falls.push([from, at])
+      }
+
     const byLine = new Map<number, number[]>()
     cells.forEach((c, i) => byLine.set(c.line, [...(byLine.get(c.line) ?? []), i]))
     const full = [...byLine.keys()].filter((l) => byLine.get(l)!.every((i) => this.grid[i] !== null))
@@ -152,7 +180,6 @@ export class Game {
 
     // Each block falls until it has dropped one line per cleared line below it.
     // ponytail: irregular grids can leave gaps after a clear; full cascade if it plays badly.
-    const falls: [number, number][] = []
     const order = cells.map((_, i) => i).filter((i) => this.grid[i] !== null).sort((a, b) => cells[a].line - cells[b].line)
     for (const from of order) {
       const target = cells[from].line - full.filter((l) => l < cells[from].line).length
