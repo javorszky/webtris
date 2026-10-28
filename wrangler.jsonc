@@ -1,5 +1,8 @@
 {
   "name": "webtris",
   "compatibility_date": "2026-10-01",
-  "assets": { "directory": "./dist" }
+  "assets": { "directory": "./dist" },
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "webtris.j7y.co", "custom_domain": true }]
 }
