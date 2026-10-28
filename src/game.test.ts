@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Game, blocks, KINDS } from './game'
-import { linesConnected, rng, squareBoard, townscaperDisc, townscaperWell, type Board } from './grid'
+import { linesConnected, rng, squareBoard, organicDisc, organicWell, type Board } from './grid'
 
 function polyArea(p: { x: number; y: number }[]) {
   return Math.abs(p.reduce((s, a, k) => s + a.x * p[(k + 1) % 4].y - p[(k + 1) % 4].x * a.y, 0)) / 2
@@ -19,16 +19,16 @@ describe('boards', () => {
   it('square board is consistent', () => invariants(squareBoard()))
 
   // Generation throws on any source triangle or pentagon, so building boards is the check.
-  it('townscaper boards are consistent and built from quads only', () => {
+  it('organic boards are consistent and built from quads only', () => {
     for (let seed = 1; seed <= 20; seed++) {
-      invariants(townscaperWell(seed))
-      invariants(townscaperDisc(seed))
+      invariants(organicWell(seed))
+      invariants(organicDisc(seed))
     }
   })
 
   it('well: down is always at most 60 degrees off straight down, and the bottom row is level', () => {
     for (let seed = 1; seed <= 50; seed++) {
-      const { cells } = townscaperWell(seed)
+      const { cells } = organicWell(seed)
       for (const c of cells)
         for (const d of c.downs) {
           const [dx, dy] = [cells[d].cx - c.cx, cells[d].cy - c.cy]
@@ -43,7 +43,7 @@ describe('boards', () => {
   })
 
   it('every disc ring is one edge-connected piece', () => {
-    for (let seed = 1; seed <= 50; seed++) expect(linesConnected(townscaperDisc(seed).cells)).toBe(true)
+    for (let seed = 1; seed <= 50; seed++) expect(linesConnected(organicDisc(seed).cells)).toBe(true)
   })
 })
 
@@ -123,8 +123,8 @@ describe('pieces and scoring', () => {
 
 describe.each([
   ['classic', () => squareBoard()],
-  ['well', () => townscaperWell(3)],
-  ['disc', () => townscaperDisc(3)],
+  ['well', () => organicWell(3)],
+  ['disc', () => organicDisc(3)],
 ])('%s board play', (_, make) => {
   it('a piece always lands within a bounded number of steps', () => {
     for (const kind of KINDS) {

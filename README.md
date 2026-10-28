@@ -9,11 +9,10 @@ Tetris in the browser on three grids. Play it at https://webtris.j7y.co.
 | Mode | Grid | A line is |
 |---|---|---|
 | Classic | 10 × 20 squares | a full row |
-| Townscaper well | irregular quads, gravity down | a horizontal band one cell high |
-| Townscaper disc | irregular quads, gravity to the centre | a ring around the centre |
+| Organic well | irregular quads, gravity down | a horizontal band one cell high |
+| Organic disc | irregular quads, gravity to the centre | a ring around the centre |
 
-The Townscaper grids follow the method from
-[Townscaper's grid](https://boristhebrave.com/docs/sylves/1/articles/tutorials/townscaper.html):
+The organic grids use the irregular quad-grid technique shared by Oskar Stålberg:
 a triangle lattice, triangles paired into quads, every quad split into four, then
 relaxed toward squares. Pieces bend to fit the cells they cross.
 
@@ -60,7 +59,7 @@ npm run preview   # build, then serve dist/ with wrangler dev
 
 | Path | Contents |
 |---|---|
-| `src/grid.ts` | board generators: square, Townscaper well, Townscaper disc |
+| `src/grid.ts` | board generators: square, organic well, organic disc |
 | `src/game.ts` | rules: pieces, moves, rotation, locking, line clears, scoring |
 | `src/render.ts` | PixiJS drawing and anime.js effects |
 | `src/main.ts` | game loop, keyboard input, HUD |

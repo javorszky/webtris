@@ -92,12 +92,12 @@ export function squareBoard(cols = 10, rows = 20): Board {
 const ek = (a: number, b: number) => (a < b ? `${a}_${b}` : `${b}_${a}`)
 
 /**
- * Townscaper-style mesh with no triangles left: tri lattice -> random perfect pairing of
+ * Organic quad mesh with no triangles left: tri lattice -> random perfect pairing of
  * triangles into quads -> split all to quads -> relax. The region is a union of whole
  * hexagons (6 triangles around every third lattice vertex), which always has a perfect
  * pairing; keep(x, y) picks hexagons by their centre.
  */
-function townscaperMesh(seed: number, cols: number, rows: number, keep: (x: number, y: number) => boolean) {
+function organicMesh(seed: number, cols: number, rows: number, keep: (x: number, y: number) => boolean) {
   const rand = rng(seed)
   const shuffle = <T>(a: T[]) => {
     for (let i = a.length - 1; i > 0; i--) {
@@ -303,7 +303,7 @@ function crop(cells: Cell[], keep: (i: number) => boolean) {
 }
 
 /**
- * Rectangular well cut out of a larger Townscaper quad mesh (whole hexagons, every triangle
+ * Rectangular well cut out of a larger organic quad mesh (whole hexagons, every triangle
  * paired into a quad at random). The cut keeps whole cells by their centres, so the cells
  * decide where the walls are; the piece is then relaxed again with nothing pinned and the
  * bottom row's centres held roughly level. Lines are horizontal bands one cell high,
@@ -313,13 +313,13 @@ function crop(cells: Cell[], keep: (i: number) => boolean) {
  * off straight down, the most direct first; an edge neighbour beats one sharing only a
  * corner. Only if nothing qualifies does the limit widen to 60 degrees.
  */
-export function townscaperWell(seed: number, width = 4.6, height = 9.4): Board {
+export function organicWell(seed: number, width = 4.6, height = 9.4): Board {
   const h = Math.sqrt(3) / 2
   // Hexagons around the cut with a margin, so the cut never meets the mesh's own edge.
   const cols = Math.ceil(width) + 8
   const rows = Math.ceil(height / h) + 8
   const [x0, y0] = [4, 4 * h]
-  const mesh = townscaperMesh(seed, cols, rows, (x, y) => x > x0 - 2 && x < x0 + width + 2 && y > y0 - 2 && y < y0 + height + 2)
+  const mesh = organicMesh(seed, cols, rows, (x, y) => x > x0 - 2 && x < x0 + width + 2 && y > y0 - 2 && y < y0 + height + 2)
   const cells = crop(mesh, (i) => {
     const c = mesh[i]
     return c.cx >= x0 && c.cx <= x0 + width && c.cy >= y0 && c.cy <= y0 + height
@@ -391,14 +391,14 @@ export function linesConnected(cells: Cell[]) {
  * The centre cell becomes a solid core; rings that touch the outer boundary are cropped.
  * A rare pocket in the layer growth can split a ring; such meshes are rejected for the next seed.
  */
-export function townscaperDisc(seed: number, radius = 9): Board {
+export function organicDisc(seed: number, radius = 9): Board {
   const h = Math.sqrt(3) / 2
   // Two units of margin so every hexagon that keep() picks lies whole inside the lattice.
   const cols = Math.ceil(radius * 2) + 4
   const rows = Math.ceil((radius * 2) / h) + 4
   const ox = cols / 2 + 0.25
   const oy = (rows * h) / 2
-  let cells = townscaperMesh(seed, cols, rows, (x, y) => Math.hypot(x - ox, y - oy) <= radius)
+  let cells = organicMesh(seed, cols, rows, (x, y) => Math.hypot(x - ox, y - oy) <= radius)
 
   const key = (p: Vec) => `${p.x.toFixed(6)},${p.y.toFixed(6)}`
   const byVertex = new Map<string, number[]>()
@@ -421,7 +421,7 @@ export function townscaperDisc(seed: number, radius = 9): Board {
   cells.forEach((c, i) => c.nb.includes(-1) && (last = Math.min(last, ring[i] - 1)))
   cells.forEach((c, i) => (c.line = ring[i] - 1))
   cells = crop(cells, (i) => ring[i] >= 1 && ring[i] <= last)
-  if (!linesConnected(cells)) return townscaperDisc(seed + 1, radius)
+  if (!linesConnected(cells)) return organicDisc(seed + 1, radius)
 
   const dist = (c: Cell) => Math.hypot(c.cx - ox, c.cy - oy)
   for (const c of cells) {

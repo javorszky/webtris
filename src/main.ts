@@ -2,13 +2,13 @@ import './style.css'
 import '@tailwindplus/elements'
 import { animate } from 'animejs'
 import { Game, blocks } from './game'
-import { squareBoard, townscaperDisc, townscaperWell, type Board } from './grid'
+import { squareBoard, organicDisc, organicWell, type Board } from './grid'
 import { COLORS, Renderer } from './render'
 
 const MODES: Record<string, { name: string; board: (seed: number) => Board }> = {
   classic: { name: 'Classic', board: () => squareBoard() },
-  well: { name: 'Townscaper well', board: townscaperWell },
-  disc: { name: 'Townscaper disc', board: townscaperDisc },
+  well: { name: 'Organic well', board: organicWell },
+  disc: { name: 'Organic disc', board: organicDisc },
 }
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T
