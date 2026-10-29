@@ -22,6 +22,9 @@ let mode = 'classic'
 let paused = true
 let last = 0
 let acc = 0
+type Action = 'left' | 'right' | 'rotate' | 'rotate-back' | 'soft-drop' | 'hard-drop' | 'pause'
+const activeControls = new Set<() => void>()
+const stopControls = () => activeControls.forEach((stop) => stop())
 
 const preview = squareBoard(4, 2)
 const previewCells = preview.cells.map(() => {
@@ -47,11 +50,13 @@ function hud() {
 }
 
 function start(m: string) {
+  stopControls()
   mode = m
   $('mode').textContent = MODES[m].name
   game = new Game(MODES[m].board(Math.floor(Math.random() * 1e9)))
   renderer.setBoard(game.board)
   paused = false
+  last = performance.now()
   acc = 0
   hud()
 }
@@ -60,6 +65,7 @@ function after(res: ReturnType<Game['tick']>) {
   if (res && game) renderer.lock(res, game)
   hud()
   if (game?.over) {
+    stopControls()
     paused = true
     $('final').textContent = String(game.score)
     over.showModal()
@@ -80,34 +86,89 @@ function frame(t: number) {
 }
 requestAnimationFrame(frame)
 
-addEventListener('keydown', (e) => {
+function runAction(action: Action) {
   if (!game || paused) return
   const g = game
-  const keys: Record<string, () => unknown> = {
-    ArrowLeft: () => g.move('left'),
-    ArrowRight: () => g.move('right'),
-    ArrowDown: () => after(g.softDrop()),
-    ArrowUp: () => g.rotate(1),
-    KeyX: () => g.rotate(1),
-    KeyZ: () => g.rotate(-1),
-    Space: () => {
+  switch (action) {
+    case 'left': g.move('left'); break
+    case 'right': g.move('right'); break
+    case 'rotate': g.rotate(1); break
+    case 'rotate-back': g.rotate(-1); break
+    case 'soft-drop': after(g.softDrop()); return
+    case 'hard-drop': {
       const from = g.cells()
       const kind = g.piece!.kind
       const res = g.hardDrop()
       if (from) renderer.trail(from, kind)
       after(res)
-    },
-    KeyP: () => {
+      return
+    }
+    case 'pause':
+      stopControls()
       paused = true
       pause.showModal()
-    },
+      return
   }
-  const act = keys[e.code]
-  if (!act) return
-  e.preventDefault()
-  act()
   hud()
+}
+
+const keys: Record<string, Action> = {
+  ArrowLeft: 'left',
+  ArrowRight: 'right',
+  ArrowDown: 'soft-drop',
+  ArrowUp: 'rotate',
+  KeyX: 'rotate',
+  KeyZ: 'rotate-back',
+  Space: 'hard-drop',
+  KeyP: 'pause',
+  Escape: 'pause',
+}
+
+addEventListener('keydown', (e) => {
+  const action = keys[e.code]
+  if (!action || !game || paused) return
+  e.preventDefault()
+  runAction(action)
 })
+
+for (const button of document.querySelectorAll<HTMLButtonElement>('[data-action]')) {
+  const action = button.dataset.action as Action
+  const repeatable = action === 'left' || action === 'right' || action === 'soft-drop'
+  let pointerId: number | null = null
+  let delay = 0
+  let interval = 0
+  const stop = () => {
+    const id = pointerId
+    pointerId = null
+    clearTimeout(delay)
+    clearInterval(interval)
+    activeControls.delete(stop)
+    if (id !== null && button.hasPointerCapture(id)) button.releasePointerCapture(id)
+  }
+
+  button.addEventListener('pointerdown', (e) => {
+    if (pointerId !== null || !game || paused) return
+    e.preventDefault()
+    pointerId = e.pointerId
+    button.setPointerCapture(e.pointerId)
+    activeControls.add(stop)
+    runAction(action)
+    if (repeatable && pointerId === e.pointerId)
+      delay = window.setTimeout(() => { interval = window.setInterval(() => runAction(action), 75) }, 180)
+  })
+  button.addEventListener('pointerup', (e) => { if (pointerId === e.pointerId) stop() })
+  button.addEventListener('pointercancel', (e) => { if (pointerId === e.pointerId) stop() })
+  button.addEventListener('lostpointercapture', stop)
+  button.addEventListener('pointermove', (e) => {
+    if (pointerId !== e.pointerId) return
+    const r = button.getBoundingClientRect()
+    if (e.clientX < r.left - 12 || e.clientX > r.right + 12 || e.clientY < r.top - 12 || e.clientY > r.bottom + 12) stop()
+  })
+  button.addEventListener('click', (e) => { if (e.detail === 0) runAction(action) })
+}
+
+$('pause-button').addEventListener('click', () => runAction('pause'))
+addEventListener('blur', stopControls)
 
 for (const b of document.querySelectorAll<HTMLButtonElement>('[data-mode]'))
   b.addEventListener('click', () => {
@@ -123,22 +184,19 @@ $('to-menu').addEventListener('click', () => {
   over.close()
   menu.showModal()
 })
-// Esc on the game page opens pause; closing the pause dialog (Esc or button) resumes.
-addEventListener('keydown', (e) => {
-  if (e.code === 'Escape' && game && !paused && !document.querySelector('dialog[open]')) {
-    paused = true
-    pause.showModal()
-  }
-})
 pause.addEventListener('close', () => {
   paused = false
   last = performance.now()
 })
 menu.addEventListener('cancel', (e) => game || e.preventDefault())
 menu.addEventListener('close', () => {
-  if (game && !game.over) paused = false
+  if (game && !game.over) {
+    paused = false
+    last = performance.now()
+  }
 })
 $('open-menu').addEventListener('click', () => {
+  stopControls()
   paused = true
   menu.showModal()
 })

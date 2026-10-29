@@ -29,15 +29,15 @@
     <script type="module" src="/src/main.ts"></script>
   </head>
   <body class="h-full text-gray-100 antialiased">
-    <main class="flex h-dvh flex-col gap-4 p-4 sm:flex-row sm:p-6">
+    <main class="game-layout flex h-dvh flex-col gap-4 p-4 sm:flex-row sm:p-6">
       <div id="stage" class="relative min-h-0 min-w-0 flex-1"></div>
 
-      <aside class="flex shrink-0 flex-row flex-wrap gap-4 sm:w-56 sm:flex-col">
-        <div>
+      <aside class="game-sidebar flex shrink-0 flex-row flex-wrap gap-4 sm:w-56 sm:flex-col">
+        <div class="mode-display">
           <p class="text-xs font-medium tracking-wide text-gray-400 uppercase">Mode</p>
           <p id="mode" class="text-lg font-semibold text-white">—</p>
         </div>
-        <dl class="grid grid-cols-3 gap-3 sm:grid-cols-1">
+        <dl class="stats grid grid-cols-3 gap-3 sm:grid-cols-1">
           <div class="rounded-lg bg-white/5 px-4 py-3 ring-1 ring-white/10">
             <dt class="text-xs text-gray-400">Score</dt>
             <dd id="score" class="origin-left text-2xl font-semibold tabular-nums text-white">0</dd>
@@ -51,7 +51,7 @@
             <dd id="lines" class="text-2xl font-semibold tabular-nums text-white">0</dd>
           </div>
         </dl>
-        <div class="rounded-lg bg-white/5 px-4 py-3 ring-1 ring-white/10">
+        <div class="next-preview rounded-lg bg-white/5 px-4 py-3 ring-1 ring-white/10">
           <p class="mb-2 text-xs text-gray-400">Next</p>
           <div id="next" class="grid w-24 grid-cols-4 gap-0.5"></div>
         </div>
@@ -61,10 +61,22 @@
           <li><kbd class="font-mono text-gray-200">↓</kbd> soft drop, <kbd class="font-mono text-gray-200">Space</kbd> hard drop</li>
           <li><kbd class="font-mono text-gray-200">P / Esc</kbd> pause</li>
         </ul>
+        <button id="pause-button" type="button" class="mobile-pause rounded-md bg-white/10 px-3 py-2 text-sm font-semibold text-white ring-1 ring-white/10 active:bg-white/20 focus-visible:outline-2 focus-visible:outline-indigo-500">
+          Pause
+        </button>
         <button id="open-menu" type="button" class="rounded-md bg-white/10 px-3 py-2 text-sm font-semibold text-white ring-1 ring-white/10 hover:bg-white/20 sm:mt-auto">
-          Change mode
+          <span class="hidden sm:inline">Change mode</span><span class="sm:hidden">Mode</span>
         </button>
       </aside>
+
+      <div class="touch-controls" role="group" aria-label="Game controls">
+        <button type="button" data-action="left" aria-label="Move left"><span class="control-icon" aria-hidden="true">←</span></button>
+        <button type="button" data-action="right" aria-label="Move right"><span class="control-icon" aria-hidden="true">→</span></button>
+        <button type="button" data-action="rotate-back" aria-label="Rotate counterclockwise"><span class="control-icon" aria-hidden="true">↶</span></button>
+        <button type="button" data-action="rotate" aria-label="Rotate clockwise"><span class="control-icon" aria-hidden="true">↷</span></button>
+        <button type="button" data-action="soft-drop" aria-label="Soft drop"><span class="control-icon" aria-hidden="true">↓</span><span class="control-label">Soft drop</span></button>
+        <button type="button" data-action="hard-drop" aria-label="Hard drop"><span class="control-icon" aria-hidden="true">⇩</span><span class="control-label">Hard drop</span></button>
+      </div>
     </main>
 
     <el-dialog>
