@@ -35,6 +35,10 @@ Rules on the irregular grids:
 | Space | hard drop |
 | P or Esc | pause |
 
+Mobile layouts show touch buttons for steering, both rotation directions, soft drop,
+and hard drop. Hold Left, Right, or Soft drop to repeat. Pause and Mode are in the
+top bar.
+
 ## Stack
 
 - [PixiJS](https://pixijs.com/) v8 draws the board.
@@ -62,7 +66,7 @@ npm run preview   # build, then serve dist/ with wrangler dev
 | `src/grid.ts` | board generators: square, organic well, organic disc |
 | `src/game.ts` | rules: pieces, moves, rotation, locking, line clears, scoring |
 | `src/render.ts` | PixiJS drawing and anime.js effects |
-| `src/main.ts` | game loop, keyboard input, HUD |
+| `src/main.ts` | game loop, keyboard and touch input, HUD |
 | `src/game.test.ts` | tests |
 | `index.html` | page shell, dialogs, meta tags |
 | `public/og.png` | share image (1200 × 630) |

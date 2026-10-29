@@ -1,1 +1,152 @@
 @import "tailwindcss";
+
+.mobile-pause,
+.touch-controls {
+  display: none;
+}
+
+@media (max-width: 639px) {
+  .game-layout {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 8px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  .game-sidebar {
+    display: grid;
+    grid-row: 1;
+    grid-template-areas:
+      "mode pause menu"
+      "stats stats next";
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 6px;
+    align-items: stretch;
+  }
+
+  #stage {
+    grid-row: 2;
+  }
+
+  .mode-display {
+    grid-area: mode;
+    align-self: center;
+    min-width: 0;
+  }
+
+  .mode-display p:first-child {
+    font-size: 10px;
+  }
+
+  .mode-display #mode {
+    overflow: hidden;
+    font-size: 14px;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-pause {
+    display: block;
+    grid-area: pause;
+  }
+
+  #open-menu {
+    grid-area: menu;
+  }
+
+  .mobile-pause,
+  #open-menu {
+    min-height: 44px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+
+  .stats {
+    grid-area: stats;
+    gap: 4px;
+  }
+
+  .stats > div {
+    min-width: 0;
+    padding: 4px 6px;
+  }
+
+  .stats dt {
+    font-size: 10px;
+  }
+
+  .stats dd {
+    font-size: 18px;
+    line-height: 1.2;
+  }
+
+  .next-preview {
+    grid-area: next;
+    padding: 4px 6px;
+  }
+
+  .next-preview p {
+    margin-bottom: 1px;
+    font-size: 10px;
+  }
+
+  .next-preview #next {
+    width: 44px;
+    gap: 1px;
+  }
+
+  .touch-controls {
+    display: grid;
+    grid-row: 3;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .touch-controls button {
+    display: flex;
+    min-width: 0;
+    min-height: 52px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    border: 1px solid rgb(255 255 255 / 15%);
+    border-radius: 8px;
+    background: rgb(255 255 255 / 10%);
+    color: white;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .touch-controls button:active {
+    background: rgb(99 102 241 / 55%);
+  }
+
+  .touch-controls button:focus-visible {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+  }
+
+  .touch-controls button:nth-last-child(-n + 2) {
+    grid-column: span 2;
+    min-height: 46px;
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .control-icon {
+    font-size: 24px;
+    line-height: 1;
+  }
+
+  .control-label {
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+  }
+}
